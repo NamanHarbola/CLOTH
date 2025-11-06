@@ -1,18 +1,22 @@
-import React, { useRef, useState, useEffect, Suspense } from 'react';
-import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import React, { useRef, Suspense } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, useGLTF } from '@react-three/drei';
-import { motion } from 'framer-motion';
-import { RotateCw, Maximize2 } from 'lucide-react';
+import { Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
+
+// Base URL for viewing content
+const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
 // 3D Model Component
 function Model3D({ modelUrl }) {
   const meshRef = useRef();
-  
+
   // If modelUrl is provided, try to load GLB/GLTF
-  if (modelUrl && (modelUrl.endsWith('.glb') || modelUrl.endsWith('.gltf'))) {
+  if (modelUrl) {
     try {
-      const { scene } = useGLTF(modelUrl);
+      // Construct absolute URL if it's a relative path
+      const url = modelUrl.startsWith('/') ? `${BASE_URL}${modelUrl}` : modelUrl;
+      const { scene } = useGLTF(url);
       
       useFrame((state) => {
         if (meshRef.current) {
@@ -35,25 +39,18 @@ function Model3D({ modelUrl }) {
 
   return (
     <group ref={meshRef}>
-      {/* T-Shirt Body */}
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[2, 2.5, 0.3]} />
         <meshStandardMaterial color="#1a202c" roughness={0.4} metalness={0.1} />
       </mesh>
-      
-      {/* Left Sleeve */}
       <mesh position={[-1.2, 0.5, 0]} rotation={[0, 0, 0.3]}>
         <boxGeometry args={[0.8, 0.6, 0.3]} />
         <meshStandardMaterial color="#1a202c" roughness={0.4} metalness={0.1} />
       </mesh>
-      
-      {/* Right Sleeve */}
       <mesh position={[1.2, 0.5, 0]} rotation={[0, 0, -0.3]}>
         <boxGeometry args={[0.8, 0.6, 0.3]} />
         <meshStandardMaterial color="#1a202c" roughness={0.4} metalness={0.1} />
       </mesh>
-      
-      {/* Neck */}
       <mesh position={[0, 1.3, 0.15]}>
         <cylinderGeometry args={[0.3, 0.35, 0.2, 32]} />
         <meshStandardMaterial color="#1a202c" roughness={0.4} metalness={0.1} />
@@ -62,21 +59,10 @@ function Model3D({ modelUrl }) {
   );
 }
 
-export default function Product3DViewer({ productId }) {
-  const [model3D, setModel3D] = useState(null);
+// Main Viewer Component
+export default function Product3DViewer({ product }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    // Load 3D model from localStorage (admin uploaded)
-    const savedModels = localStorage.getItem('product3DModels');
-    if (savedModels) {
-      const models = JSON.parse(savedModels);
-      const productModel = models.find(m => m.productId === productId);
-      if (productModel) {
-        setModel3D(productModel.modelUrl);
-      }
-    }
-  }, [productId]);
+  const modelUrl = product?.model3DUrl; // Get URL from product prop
 
   return (
     <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'w-full h-full'}`}>
@@ -102,7 +88,7 @@ export default function Product3DViewer({ productId }) {
           <pointLight position={[-10, -10, -10]} intensity={0.3} />
           
           <Suspense fallback={null}>
-            <Model3D modelUrl={model3D} />
+            <Model3D modelUrl={modelUrl} />
           </Suspense>
           
           <ContactShadows
@@ -116,13 +102,7 @@ export default function Product3DViewer({ productId }) {
           <Environment preset="city" />
         </Canvas>
         
-        {/* Controls Overlay */}
-        <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center">
-          <div className="bg-background/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm flex items-center space-x-2">
-            <RotateCw className="w-4 h-4" />
-            <span>Drag to rotate</span>
-          </div>
-          
+        <div className="absolute bottom-4 right-4">
           <Button
             variant="ghost"
             size="icon"

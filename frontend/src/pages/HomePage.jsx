@@ -6,53 +6,46 @@ import HeroMedia from '../components/HeroMedia';
 import ProductCard from '../components/ProductCard';
 import ScrollReveal from '../components/ScrollReveal';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { scrollYProgress } = useScroll();
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const mouseY = useTransform(scrollYProgress, [0, 0.1], [0, 20]);
 
-  const featuredProducts = [
-    {
-      id: 1,
-      name: 'Premium Leather Jacket',
-      category: 'Outerwear',
-      price: 24999,
-      originalPrice: 32999,
-      image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80',
-      badge: 'New',
-      colors: ['#1a202c', '#4a5568', '#2d3748'],
-    },
-    {
-      id: 2,
-      name: 'Silk Evening Dress',
-      category: 'Women',
-      price: 37999,
-      image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80',
-      badge: 'Trending',
-      colors: ['#742a2a', '#1a202c', '#2c5282'],
-    },
-    {
-      id: 3,
-      name: 'Designer Sneakers',
-      category: 'Footwear',
-      price: 15699,
-      originalPrice: 20599,
-      image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&q=80',
-      colors: ['#ffffff', '#1a202c', '#9b2c2c'],
-    },
-    {
-      id: 4,
-      name: 'Cashmere Sweater',
-      category: 'Knitwear',
-      price: 23099,
-      image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&q=80',
-      badge: 'Bestseller',
-      colors: ['#c6977f', '#744210', '#1a202c'],
-    },
-  ];
+  useEffect(() => {
+    // Fetch products from API
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/products`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        const allProducts = await response.json();
+        // Take first 4 as "featured"
+        setFeaturedProducts(allProducts.slice(0, 4));
+      } catch (error) {
+        toast.error(error.message);
+        // Set fallback data on error
+        setFeaturedProducts([
+          { id: 1, name: 'Premium Leather Jacket', category: 'Outerwear', price: 24999, originalPrice: 32999, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80', badge: 'New', colors: ['#1a202c', '#4a5568', '#2d3748'] },
+          { id: 2, name: 'Silk Evening Dress', category: 'Women', price: 37999, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80', badge: 'Trending', colors: ['#742a2a', '#1a202c', '#2c5282'] },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchProducts();
+  }, []);
 
   const features = [
     {
@@ -154,7 +147,6 @@ export default function HomePage() {
             className="flex flex-col items-center text-white/90"
           >
             <span className="text-sm mb-3 font-medium tracking-wide">Scroll to explore</span>
-            {/* Animated Mouse */}
             <motion.div
               animate={{
                 y: [0, 8, 0],
@@ -218,9 +210,13 @@ export default function HomePage() {
           </ScrollReveal>
           
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {featuredProducts.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
+            {isLoading ? (
+              <p className="text-center text-muted-foreground col-span-full">Loading products...</p>
+            ) : (
+              featuredProducts.map((product, index) => (
+                <ProductCard key={product.id} product={product} index={index} />
+              ))
+            )}
           </div>
           
           <ScrollReveal>

@@ -1,38 +1,57 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ShoppingBag, X } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { toast } from 'sonner';
 
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+
 export default function UserAuthDialog({ isOpen, onClose }) {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
     
-    // Emergent Google OAuth Integration
-    // For demo purposes, simulate successful login
-    setTimeout(() => {
-      const userData = {
-        name: 'Fashion Lover',
-        email: 'user@luxe3d.com',
-        picture: 'https://ui-avatars.com/api/?name=Fashion+Lover&background=10b981&color=fff'
-      };
+    // In a real app, you'd get these details from a Google OAuth popup
+    // For demo purposes, we simulate a successful login
+    const demoUser = {
+      email: 'user@luxe3d.com',
+      name: 'Fashion Lover',
+      picture: 'https://ui-avatars.com/api/?name=Fashion+Lover&background=10b981&color=fff'
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(demoUser),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed. Please try again.');
+      }
+
+      const { access_token } = await response.json();
+
+      // Store the token
+      localStorage.setItem('userToken', access_token);
       
+      // We still use 'isUserAuthenticated' for simple conditional rendering in Navbar
+      // This will be replaced by the presence of `currentUser` from the API call
       localStorage.setItem('isUserAuthenticated', 'true');
-      localStorage.setItem('currentUser', JSON.stringify(userData));
-      toast.success(`Welcome, ${userData.name}!`);
+      
+      toast.success(`Welcome, ${demoUser.name}!`);
       onClose();
+      
+      // Reload the window to trigger the Navbar's useEffect to fetch user data
+      window.location.reload(); 
+      
+    } catch (error) {
+      toast.error(error.message);
       setIsLoading(false);
-    }, 1500);
-    
-    // In production, use Google OAuth:
-    // const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_GOOGLE_CLIENT_ID&redirect_uri=${encodeURIComponent(window.location.origin + '/callback')}&response_type=code&scope=email profile`;
-    // window.location.href = authUrl;
+    }
   };
 
   return (

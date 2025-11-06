@@ -5,25 +5,42 @@ import { SlidersHorizontal, Grid3x3, Grid2x2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import ProductCard from '../components/ProductCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { toast } from 'sonner';
+
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 export default function CollectionPage() {
   const { category } = useParams();
   const [gridColumns, setGridColumns] = useState(4);
   const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Mock products data
-    const mockProducts = Array.from({ length: 12 }, (_, i) => ({
-      id: i + 1,
-      name: `Premium Item ${i + 1}`,
-      category: category || 'Fashion',
-      price: Math.floor(Math.random() * 400) + 100,
-      originalPrice: Math.random() > 0.5 ? Math.floor(Math.random() * 500) + 200 : null,
-      image: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 100000000)}?w=800&q=80`,
-      badge: Math.random() > 0.7 ? ['New', 'Sale', 'Trending'][Math.floor(Math.random() * 3)] : null,
-      colors: ['#1a202c', '#9b2c2c', '#276749'].slice(0, Math.floor(Math.random() * 3) + 1),
-    }));
-    setProducts(mockProducts);
+    // Fetch products from API
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/products`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        let allProducts = await response.json();
+        
+        // Filter by category if one is provided in the URL (and not 'new')
+        if (category && category.toLowerCase() !== 'new') {
+          allProducts = allProducts.filter(p => p.category.toLowerCase() === category.toLowerCase());
+        }
+        
+        setProducts(allProducts);
+      } catch (error) {
+        toast.error(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchProducts();
   }, [category]);
 
   return (
@@ -56,7 +73,7 @@ export default function CollectionPage() {
                 Filters
               </Button>
               <span className="text-sm text-muted-foreground">
-                {products.length} items
+                {isLoading ? '...' : products.length} items
               </span>
             </div>
             
@@ -97,17 +114,23 @@ export default function CollectionPage() {
       {/* Products Grid */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div
-            className={`grid gap-8 ${
-              gridColumns === 4
-                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-            }`}
-          >
-            {products.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="text-center text-muted-foreground">Loading products...</div>
+          ) : products.length === 0 ? (
+             <div className="text-center text-muted-foreground">No products found in this collection.</div>
+          ) : (
+            <div
+              className={`grid gap-8 ${
+                gridColumns === 4
+                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+                  : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+              }`}
+            >
+              {products.map((product, index) => (
+                <ProductCard key={product.id} product={product} index={index} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

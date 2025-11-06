@@ -9,45 +9,104 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+
 export default function CartPage() {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false); // For payment
+  const [isCouponLoading, setIsCouponLoading] = useState(false); // For coupon apply
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
 
+  // --- (useEffect, updateQuantity, removeItem are unchanged) ---
   useEffect(() => {
-    // Load cart from localStorage
-    const savedCart = localStorage.getItem('cartItems');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
-    }
-  }, []);
+    const fetchCart = async () => {
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        toast.error('Please log in to view your cart.');
+        setIsLoading(false);
+        navigate('/'); 
+        return;
+      }
+      try {
+        const response = await fetch(`${API_URL}/cart`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch your cart.');
+        const cartData = await response.json();
+        setCartItems(cartData.items || []);
+      } catch (error) {
+        toast.error(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCart();
+  }, [navigate]);
 
-  const saveCart = (items) => {
-    localStorage.setItem('cartItems', JSON.stringify(items));
-    setCartItems(items);
-  };
-
-  const updateQuantity = (id, newQuantity) => {
+  const updateQuantity = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      toast.error('Your session has expired. Please log in again.');
+      return;
+    }
+    const originalCart = cartItems;
     const updatedCart = cartItems.map(item =>
-      item.id === id ? { ...item, quantity: newQuantity } : item
+      item.id === itemId ? { ...item, quantity: newQuantity } : item
     );
-    saveCart(updatedCart);
+    setCartItems(updatedCart);
+
+    try {
+      const response = await fetch(`${API_URL}/cart/items/${itemId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ quantity: newQuantity }),
+      });
+      if (!response.ok) throw new Error('Failed to update quantity.');
+      const cartData = await response.json();
+      setCartItems(cartData.items || []); 
+    } catch (error) {
+      toast.error(error.message);
+      setCartItems(originalCart); // Rollback
+    }
   };
 
-  const removeItem = (id) => {
-    const updatedCart = cartItems.filter(item => item.id !== id);
-    saveCart(updatedCart);
-    toast.success('Item removed from cart');
+  const removeItem = async (itemId) => {
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      toast.error('Your session has expired. Please log in again.');
+      return;
+    }
+    const originalCart = cartItems;
+    const updatedCart = cartItems.filter(item => item.id !== itemId);
+    setCartItems(updatedCart);
+    
+    try {
+      const response = await fetch(`${API_URL}/cart/items/${itemId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to remove item.');
+      const cartData = await response.json();
+      setCartItems(cartData.items || []); 
+      toast.success('Item removed from cart');
+    } catch (error) {
+      toast.error(error.message);
+      setCartItems(originalCart); // Rollback
+    }
   };
 
+  // --- (Calculation logic is unchanged) ---
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const shipping = subtotal > 5000 ? 0 : 99;
-  
-  // Calculate discount
   let discount = 0;
   if (appliedCoupon) {
     if (appliedCoupon.type === 'percentage') {
@@ -59,45 +118,47 @@ export default function CartPage() {
       discount = appliedCoupon.value;
     }
   }
-  
   const tax = (subtotal - discount) * 0.18; // 18% GST
   const total = subtotal - discount + shipping + tax;
 
-  const applyCoupon = () => {
+  // --- (applyCoupon and removeCoupon are unchanged from last step) ---
+  const applyCoupon = async () => {
     if (!couponCode.trim()) {
       setCouponError('Please enter a coupon code');
       return;
     }
-
-    const coupons = JSON.parse(localStorage.getItem('coupons') || '[]');
-    const coupon = coupons.find(c => c.code.toUpperCase() === couponCode.toUpperCase());
-
-    if (!coupon) {
-      setCouponError('Invalid coupon code');
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      toast.error('Please log in to apply coupons.');
       return;
     }
-
-    // Check if expired
-    if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) {
-      setCouponError('This coupon has expired');
-      return;
-    }
-
-    // Check usage limit
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      setCouponError('This coupon has reached its usage limit');
-      return;
-    }
-
-    // Check minimum order
-    if (coupon.minOrder && subtotal < coupon.minOrder) {
-      setCouponError(`Minimum order of ₹${coupon.minOrder} required`);
-      return;
-    }
-
-    setAppliedCoupon(coupon);
+    setIsCouponLoading(true);
     setCouponError('');
-    toast.success('Coupon applied successfully!');
+    try {
+      const response = await fetch(`${API_URL}/coupons/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          code: couponCode,
+          subtotal: subtotal
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Invalid coupon code');
+      }
+      const validCoupon = await response.json();
+      setAppliedCoupon(validCoupon);
+      toast.success('Coupon applied successfully!');
+    } catch (error) {
+      setCouponError(error.message);
+      setAppliedCoupon(null);
+    } finally {
+      setIsCouponLoading(false);
+    }
   };
 
   const removeCoupon = () => {
@@ -107,60 +168,124 @@ export default function CartPage() {
     toast.info('Coupon removed');
   };
 
-  const handleCheckout = () => {
+  // --- MODIFIED: handleCheckout ---
+  const handleCheckout = async () => {
     if (cartItems.length === 0) {
       toast.error('Your cart is empty');
+      return;
+    }
+    
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      toast.error('Please log in to check out.');
       return;
     }
 
     setIsProcessing(true);
 
-    // Razorpay Integration
-    const options = {
-      key: 'rzp_test_YOUR_KEY_ID', // Replace with your Razorpay test/live key
-      amount: Math.round(total * 100), // Amount in paise
-      currency: 'INR',
-      name: 'LUXE3D',
-      description: 'Fashion Purchase',
-      image: '/logo.png',
-      handler: function (response) {
-        // Payment successful
-        toast.success('Payment successful! Order ID: ' + response.razorpay_payment_id);
-        
-        // Clear cart
-        localStorage.removeItem('cartItems');
-        setCartItems([]);
-        
-        // Navigate to success page
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
-      },
-      prefill: {
-        name: 'Customer Name',
-        email: 'customer@example.com',
-        contact: '9999999999'
-      },
-      theme: {
-        color: '#10b981'
-      },
-      modal: {
-        ondismiss: function() {
-          setIsProcessing(false);
-          toast.info('Payment cancelled');
-        }
-      }
-    };
+    try {
+      // 1. Create the Order in our backend
+      const orderResponse = await fetch(`${API_URL}/orders/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          coupon_code: appliedCoupon?.code || null
+        }),
+      });
 
-    // Check if Razorpay is loaded
-    if (typeof window.Razorpay !== 'undefined') {
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } else {
-      toast.error('Razorpay SDK not loaded. Please refresh the page.');
+      if (!orderResponse.ok) {
+        const err = await orderResponse.json();
+        throw new Error(err.detail || 'Failed to create order.');
+      }
+
+      const orderData = await orderResponse.json();
+      
+      // 2. Open Razorpay Modal
+      const options = {
+        key: orderData.razorpay_key_id,
+        amount: orderData.amount * 100, // Amount in paise
+        currency: 'INR',
+        name: 'LUXE3D',
+        description: 'Fashion Purchase',
+        image: '/logo.png',
+        order_id: orderData.razorpay_order_id,
+        handler: async function (response) {
+          // 3. Verify the payment
+          try {
+            const verifyResponse = await fetch(`${API_URL}/orders/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                db_order_id: orderData.db_order_id
+              }),
+            });
+
+            if (!verifyResponse.ok) {
+              const err = await verifyResponse.json();
+              throw new Error(err.detail || 'Payment verification failed.');
+            }
+            
+            toast.success('Payment successful! Your order is confirmed.');
+            setCartItems([]);
+            setAppliedCoupon(null);
+            navigate('/'); // Go to home, or preferably an order success page
+
+          } catch (verifyError) {
+            toast.error(verifyError.message);
+            setIsProcessing(false);
+          }
+        },
+        prefill: {
+          name: orderData.user_name,
+          email: orderData.user_email,
+        },
+        theme: {
+          color: '#10b981'
+        },
+        modal: {
+          ondismiss: function() {
+            setIsProcessing(false);
+            toast.info('Payment cancelled');
+            // Note: The "pending" order still exists in the DB.
+            // A real system would have a cron job to clean up old pending orders.
+          }
+        }
+      };
+
+      if (typeof window.Razorpay !== 'undefined') {
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } else {
+        toast.error('Razorpay SDK not loaded. Please refresh the page.');
+        setIsProcessing(false);
+      }
+
+    } catch (error) {
+      toast.error(error.message);
       setIsProcessing(false);
     }
   };
+
+  // --- (Loading and Empty Cart UI is unchanged) ---
+  if (isLoading) {
+    return (
+      <div className="min-h-screen pt-20 flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-muted-foreground">Loading your cart...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (cartItems.length === 0) {
     return (
@@ -181,6 +306,7 @@ export default function CartPage() {
     );
   }
 
+  // --- (Main component return) ---
   return (
     <div className="min-h-screen pt-20 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -308,7 +434,6 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* Coupon Code Section */}
                 {!appliedCoupon && (
                   <div className="space-y-2 pt-4 border-t">
                     <Label htmlFor="coupon">Have a coupon?</Label>
@@ -323,8 +448,8 @@ export default function CartPage() {
                         placeholder="Enter coupon code"
                         className="uppercase"
                       />
-                      <Button onClick={applyCoupon} variant="outline">
-                        Apply
+                      <Button onClick={applyCoupon} variant="outline" disabled={isCouponLoading}>
+                        {isCouponLoading ? "..." : "Apply"}
                       </Button>
                     </div>
                     {couponError && (
@@ -337,7 +462,7 @@ export default function CartPage() {
                   className="w-full mt-6"
                   size="lg"
                   onClick={handleCheckout}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isLoading}
                 >
                   {isProcessing ? 'Processing...' : 'Proceed to Payment'}
                 </Button>

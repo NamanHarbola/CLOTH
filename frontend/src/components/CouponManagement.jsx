@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, Copy, Tag, Calendar, Percent } from 'lucide-react';
+import { Plus, Edit, Trash2, Copy, Tag } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
@@ -10,8 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { toast } from 'sonner';
 import { Badge } from '../components/ui/badge';
 
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+
 export default function CouponManagement() {
   const [coupons, setCoupons] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [formData, setFormData] = useState({
@@ -29,19 +33,21 @@ export default function CouponManagement() {
     loadCoupons();
   }, []);
 
-  const loadCoupons = () => {
-    const savedCoupons = localStorage.getItem('coupons');
-    if (savedCoupons) {
-      setCoupons(JSON.parse(savedCoupons));
+  const loadCoupons = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/coupons`);
+      if (!response.ok) throw new Error('Failed to fetch coupons');
+      const data = await response.json();
+      setCoupons(data);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const saveCoupons = (updatedCoupons) => {
-    localStorage.setItem('coupons', JSON.stringify(updatedCoupons));
-    setCoupons(updatedCoupons);
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validation
@@ -49,37 +55,54 @@ export default function CouponManagement() {
       toast.error('Code and value are required');
       return;
     }
+    
+    setIsLoading(true);
 
-    if (editingCoupon) {
-      const updatedCoupons = coupons.map(c => 
-        c.id === editingCoupon.id ? { ...formData, id: editingCoupon.id, usedCount: editingCoupon.usedCount || 0 } : c
-      );
-      saveCoupons(updatedCoupons);
-      toast.success('Coupon updated successfully!');
-    } else {
-      // Check if code already exists
-      if (coupons.some(c => c.code.toLowerCase() === formData.code.toLowerCase())) {
-        toast.error('Coupon code already exists');
-        return;
+    const couponData = {
+      ...formData,
+      value: parseFloat(formData.value),
+      minOrder: formData.minOrder ? parseFloat(formData.minOrder) : null,
+      maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
+      usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : null,
+      expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : null,
+    };
+
+    try {
+      let response;
+      if (editingCoupon) {
+        response = await fetch(`${API_URL}/coupons/${editingCoupon.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(couponData),
+        });
+        if (!response.ok) {
+           const err = await response.json();
+           throw new Error(err.detail || 'Failed to update coupon');
+        }
+        toast.success('Coupon updated successfully!');
+      } else {
+        response = await fetch(`${API_URL}/coupons`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(couponData),
+        });
+        if (!response.ok) {
+           const err = await response.json();
+           throw new Error(err.detail || 'Failed to create coupon');
+        }
+        toast.success('Coupon created successfully!');
       }
 
-      const newCoupon = {
-        ...formData,
-        id: Date.now(),
-        code: formData.code.toUpperCase(),
-        value: parseFloat(formData.value),
-        minOrder: formData.minOrder ? parseFloat(formData.minOrder) : 0,
-        maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
-        usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : null,
-        usedCount: 0,
-        createdAt: new Date().toISOString(),
-      };
-      saveCoupons([...coupons, newCoupon]);
-      toast.success('Coupon created successfully!');
+      await response.json();
+      loadCoupons(); // Refresh the list
+      resetForm();
+      setIsDialogOpen(false);
+
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
     }
-    
-    resetForm();
-    setIsDialogOpen(false);
   };
 
   const handleEdit = (coupon) => {
@@ -90,18 +113,28 @@ export default function CouponManagement() {
       value: coupon.value.toString(),
       minOrder: coupon.minOrder?.toString() || '',
       maxDiscount: coupon.maxDiscount?.toString() || '',
-      expiryDate: coupon.expiryDate || '',
+      expiryDate: coupon.expiryDate ? new Date(coupon.expiryDate).toISOString().split('T')[0] : '',
       usageLimit: coupon.usageLimit?.toString() || '',
       description: coupon.description || '',
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this coupon?')) {
-      const updatedCoupons = coupons.filter(c => c.id !== id);
-      saveCoupons(updatedCoupons);
-      toast.success('Coupon deleted successfully!');
+      try {
+        const response = await fetch(`${API_URL}/coupons/${id}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+           if (response.status === 404) throw new Error('Coupon not found');
+           throw new Error('Failed to delete coupon');
+        }
+        toast.success('Coupon deleted successfully!');
+        loadCoupons(); // Refresh list
+      } catch (error) {
+        toast.error(error.message);
+      }
     }
   };
 
@@ -168,6 +201,7 @@ export default function CouponManagement() {
                     placeholder="SAVE20"
                     required
                     maxLength={20}
+                    disabled={!!editingCoupon} // Don't allow editing coupon code
                   />
                 </div>
                 <div className="space-y-2">
@@ -267,8 +301,8 @@ export default function CouponManagement() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingCoupon ? 'Update Coupon' : 'Create Coupon'}
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? 'Saving...' : (editingCoupon ? 'Update Coupon' : 'Create Coupon')}
                 </Button>
               </div>
             </form>
@@ -276,7 +310,9 @@ export default function CouponManagement() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        {coupons.length === 0 ? (
+        {isLoading && coupons.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">Loading coupons...</div>
+        ) : coupons.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Tag className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No coupons yet. Create your first coupon!</p>

@@ -6,59 +6,60 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { toast } from 'sonner';
 
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+
 export default function ProductCard({ product, index }) {
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const handleProductClick = () => {
-    // Save product data to localStorage for the product page
-    const productData = {
-      ...product,
-      colors: (product.colors || ['#1a202c']).map((color, idx) => ({
-        name: idx === 0 ? 'Navy' : idx === 1 ? 'Charcoal' : idx === 2 ? 'Forest' : 'Gray',
-        value: color
-      })),
-      sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-      rating: 4.8,
-      reviews: 248,
-      description: `Experience the perfect blend of style and comfort with our ${product.name}. Crafted from premium materials.`,
-      features: [
-        'Premium Quality Materials',
-        'Expert Craftsmanship',
-        'Sustainable Production',
-        'Perfect Fit Guarantee',
-      ],
-    };
-    
-    localStorage.setItem(`product_${product.id}`, JSON.stringify(productData));
+    // MODIFIED: No longer save to localStorage.
+    // The ProductPage will fetch its own data.
     navigate(`/product/${product.id}`);
   };
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.stopPropagation();
     
-    // Get existing cart
-    const existingCart = JSON.parse(localStorage.getItem('cartItems') || '[]');
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      toast.error('Please log in to add items to your cart.');
+      return;
+    }
     
-    // Create cart item
     const cartItem = {
-      id: Date.now(),
       productId: product.id,
       name: product.name,
       price: product.price,
       category: product.category,
       image: product.image,
-      selectedSize: 'M',
-      selectedColor: product.colors?.[0] || '#1a202c',
+      selectedSize: 'M', // Default size
+      selectedColor: product.colors?.[0] || '#1a202c', // Default color
       quantity: 1,
     };
     
-    // Add to cart
-    existingCart.push(cartItem);
-    localStorage.setItem('cartItems', JSON.stringify(existingCart));
-    
-    toast.success(`${product.name} added to cart!`);
+    try {
+      const response = await fetch(`${API_URL}/cart/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(cartItem),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add item to cart.');
+      }
+      
+      await response.json();
+      toast.success(`${product.name} added to cart!`);
+      
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   const handleLike = (e) => {
@@ -81,7 +82,6 @@ export default function ProductCard({ product, index }) {
         onClick={handleProductClick}
       >
         <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-          {/* Product Image */}
           <motion.img
             src={product.image}
             alt={product.name}
@@ -92,14 +92,12 @@ export default function ProductCard({ product, index }) {
             transition={{ duration: 0.6 }}
           />
           
-          {/* Badge */}
-          {product.badge && (
+          {product.badge && product.badge !== 'none' && (
             <div className="absolute top-4 left-4 bg-accent text-accent-foreground px-3 py-1 text-xs font-semibold rounded-full">
               {product.badge}
             </div>
           )}
           
-          {/* Like Button */}
           <Button
             variant="ghost"
             size="icon"
@@ -113,7 +111,6 @@ export default function ProductCard({ product, index }) {
             />
           </Button>
           
-          {/* Hover Actions */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{
@@ -133,7 +130,6 @@ export default function ProductCard({ product, index }) {
           </motion.div>
         </div>
         
-        {/* Product Info */}
         <div className="p-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
             {product.category}

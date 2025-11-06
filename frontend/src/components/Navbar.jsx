@@ -13,13 +13,16 @@ import {
 } from './ui/dropdown-menu';
 import { toast } from 'sonner';
 
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+
 export default function Navbar() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [cartCount] = useState(3);
+  const [cartCount] = useState(3); // This will also be dynamic later
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,20 +30,51 @@ export default function Navbar() {
     };
     window.addEventListener('scroll', handleScroll);
     
-    // Check if user is logged in
-    const userData = localStorage.getItem('currentUser');
-    if (userData) {
-      setCurrentUser(JSON.parse(userData));
-    }
+    // Check if user is logged in by validating token
+    const fetchUser = async () => {
+      const token = localStorage.getItem('userToken');
+      if (token) {
+        try {
+          const response = await fetch(`${API_URL}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!response.ok) {
+            // Token is invalid or expired
+            handleLogout(false); // Call logout without toast
+            throw new Error('Session expired. Please log in again.');
+          }
+          
+          const userData = await response.json();
+          setCurrentUser(userData);
+          localStorage.setItem('isUserAuthenticated', 'true');
+
+        } catch (error) {
+          console.error("Failed to fetch user:", error);
+          handleLogout(false); // Clean up invalid token
+        }
+      } else {
+        // No token, ensure user is logged out
+        localStorage.removeItem('isUserAuthenticated');
+        localStorage.removeItem('currentUser'); // Clean up old data format
+      }
+    };
+    
+    fetchUser();
     
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = (showToast = true) => {
     localStorage.removeItem('isUserAuthenticated');
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('userToken'); // Remove the token
+    localStorage.removeItem('currentUser'); // Clean up old data format
     setCurrentUser(null);
-    toast.success('Logged out successfully');
+    if (showToast) {
+      toast.success('Logged out successfully');
+    }
   };
 
   const navLinks = [
@@ -101,7 +135,7 @@ export default function Navbar() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="hidden sm:flex">
                       <img
-                        src={currentUser.picture}
+                        src={currentUser.picture || `https://ui-avatars.com/api/?name=${currentUser.name}&background=10b981&color=fff`}
                         alt={currentUser.name}
                         className="w-8 h-8 rounded-full"
                       />
@@ -119,11 +153,14 @@ export default function Navbar() {
                     <DropdownMenuItem onClick={() => navigate('/wishlist')}>
                       Wishlist
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/admin/login')}>
-                      Admin Panel
-                    </DropdownMenuItem>
+                    {/* Show Admin Panel link only if user is admin */}
+                    {currentUser.isAdmin && (
+                      <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
+                        Admin Panel
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <DropdownMenuItem onClick={() => handleLogout(true)} className="text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
                       Logout
                     </DropdownMenuItem>

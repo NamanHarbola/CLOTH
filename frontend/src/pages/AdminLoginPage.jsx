@@ -6,31 +6,52 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
 
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+
 export default function AdminLoginPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
     
-    // Emergent Google OAuth Integration
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_GOOGLE_CLIENT_ID&redirect_uri=${encodeURIComponent(window.location.origin + '/admin/callback')}&response_type=code&scope=email profile&access_type=offline`;
-    
-    // For demo purposes, simulate successful login
-    setTimeout(() => {
+    // In a real app, you'd get these details from a Google OAuth popup
+    // For demo purposes, we simulate a successful login with a demo admin user
+    const demoAdminUser = {
+      email: 'admin@luxe3d.com',
+      name: 'Admin User',
+      picture: 'https://ui-avatars.com/api/?name=Admin+User&background=10b981&color=fff'
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/auth/admin/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(demoAdminUser),
+      });
+
+      if (!response.ok) {
+        throw new Error('Admin login failed. Please try again.');
+      }
+
+      const { access_token } = await response.json();
+
+      // Store the token. We use 'adminToken' to differentiate from regular user token.
+      localStorage.setItem('adminToken', access_token);
+      
+      // We still use 'isAdminAuthenticated' for simple route protection
       localStorage.setItem('isAdminAuthenticated', 'true');
-      localStorage.setItem('adminUser', JSON.stringify({
-        name: 'Admin User',
-        email: 'admin@luxe3d.com',
-        picture: 'https://ui-avatars.com/api/?name=Admin+User&background=10b981&color=fff'
-      }));
-      toast.success('Login successful!');
+      
+      toast.success('Admin login successful!');
       navigate('/admin/dashboard');
+
+    } catch (error) {
+      toast.error(error.message);
       setIsLoading(false);
-    }, 1500);
+    }
     
-    // In production, redirect to Google OAuth:
-    // window.location.href = authUrl;
+    // We don't set isLoading(false) on success because we are navigating away
   };
 
   return (
