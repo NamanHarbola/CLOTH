@@ -1,119 +1,177 @@
-import React, { useState, useEffect } from 'react';
-import { Play, Pause, Upload } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { Heart, ShoppingCart } from 'lucide-react';
 import { Button } from './ui/button';
+import { Card } from './ui/card';
 import { toast } from 'sonner';
 
 // Define API base URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-// Base URL for viewing content
+// --- ADDED THIS LINE ---
 const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
-export default function HeroMedia() {
-  const [heroContent, setHeroContent] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [videoError, setVideoError] = useState(false);
+export default function ProductCard({ product, index }) {
+  const navigate = useNavigate();
+  const [isLiked, setIsLiked] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  useEffect(() => {
-    // Load hero content from API
-    const fetchHeroContent = async () => {
-      try {
-        const response = await fetch(`${API_URL}/content/hero`);
-        if (!response.ok) throw new Error('Failed to load hero content');
-        const data = await response.json();
-        
-        // Construct absolute URL if it's relative
-        if (data.url && data.url.startsWith('/')) {
-          data.url = `${BASE_URL}${data.url}`;
-        }
-        
-        setHeroContent(data);
-        console.log('Loaded hero content from API:', data.type);
-      } catch (error) {
-        toast.error(error.message);
-        // Set default hero content on error
-        setHeroContent({
-          type: 'image',
-          url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1920&q=80',
-          alt: 'Fashion Model'
-        });
-      }
+  const handleProductClick = () => {
+    navigate(`/product/${product.id}`);
+  };
+
+  const handleAddToCart = async (e) => {
+    e.stopPropagation();
+    
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      toast.error('Please log in to add items to your cart.');
+      return;
+    }
+    
+    const cartItem = {
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      image: product.image,
+      selectedSize: 'M', // Default size
+      selectedColor: product.colors?.[0] || '#1a202c', // Default color
+      quantity: 1,
     };
     
-    fetchHeroContent();
-  }, []);
+    try {
+      const response = await fetch(`${API_URL}/cart/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(cartItem),
+      });
 
-  const handleVideoToggle = () => {
-    const video = document.getElementById('hero-video');
-    if (video) {
-      if (isPlaying) {
-        video.pause();
-      } else {
-        video.play();
+      if (!response.ok) {
+        throw new Error('Failed to add item to cart.');
       }
-      setIsPlaying(!isPlaying);
+      
+      await response.json();
+      toast.success(`${product.name} added to cart!`);
+      
+    } catch (error) {
+      toast.error(error.message);
     }
   };
 
-  const handleVideoError = () => {
-    console.error('Video failed to load');
-    setVideoError(true);
+  const handleLike = (e) => {
+    e.stopPropagation();
+    setIsLiked(!isLiked);
+    toast.success(isLiked ? 'Removed from wishlist' : 'Added to wishlist');
   };
 
-  if (!heroContent) {
-    return (
-      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 animate-pulse" />
-    );
-  }
+  // --- HELPER to get full image URL ---
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/') && BASE_URL) {
+      return `${BASE_URL}${url}`;
+    }
+    return url;
+  };
 
   return (
-    <div className="relative w-full h-full">
-      {heroContent.type === 'video' ? (
-        <>
-          {!videoError ? (
-            <>
-              <video
-                id="hero-video"
-                className="w-full h-full object-cover"
-                autoPlay
-                loop
-                muted
-                playsInline
-                onError={handleVideoError}
-                src={heroContent.url} // Use src attribute for reliability
-              >
-                Your browser does not support the video tag.
-              </video>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute bottom-6 right-6 bg-white/20 backdrop-blur-md hover:bg-white/30 text-white z-20"
-                onClick={handleVideoToggle}
-              >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5" />
-                ) : (
-                  <Play className="w-5 h-5" />
-                )}
-              </Button>
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-muted">
-              <div className="text-center space-y-2">
-                <Upload className="w-12 h-12 mx-auto text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Video failed to load</p>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  The admin may need to re-upload this file.
-                </p>
-              </div>
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.1, duration: 0.5 }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Card
+        className="group cursor-pointer overflow-hidden border-border hover:shadow-lg transition-all duration-300"
+        onClick={handleProductClick}
+      >
+        <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+          <motion.img
+            // --- MODIFIED THIS LINE ---
+            src={getImageUrl(product.image)}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            animate={{
+              scale: isHovered ? 1.1 : 1,
+            }}
+            transition={{ duration: 0.6 }}
+          />
+          
+          {product.badge && product.badge !== 'none' && (
+            <div className="absolute top-4 left-4 bg-accent text-accent-foreground px-3 py-1 text-xs font-semibold rounded-full">
+              {product.badge}
             </div>
           )}
-        </>
-      ) : (
-        <div 
-          className="w-full h-full bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${heroContent.url})` }}
-        />
-      )}
-    </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 bg-background/80 backdrop-blur-sm hover:bg-background"
+            onClick={handleLike}
+          >
+            <Heart
+              className={`w-5 h-5 transition-all ${
+                isLiked ? 'fill-accent text-accent' : 'text-foreground'
+              }`}
+            />
+          </Button>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{
+              opacity: isHovered ? 1 : 0,
+              y: isHovered ? 0 : 20,
+            }}
+            transition={{ duration: 0.3 }}
+            className="absolute bottom-4 left-4 right-4"
+          >
+            <Button
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={handleAddToCart}
+            >
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Add to Cart
+            </Button>
+          </motion.div>
+        </div>
+        
+        <div className="p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+            {product.category}
+          </p>
+          <h3 className="font-semibold text-base mb-2 line-clamp-1">
+            {product.name}
+          </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline space-x-2">
+              <span className="text-lg font-bold text-foreground">
+                {'\u20B9'}{product.price.toLocaleString('en-IN')}
+              </span>
+              {product.originalPrice && (
+                <span className="text-sm text-muted-foreground line-through">
+                  {'\u20B9'}{product.originalPrice.toLocaleString('en-IN')}
+                </span>
+              )}
+            </div>
+            {product.colors && (
+              <div className="flex space-x-1">
+                {product.colors.slice(0, 3).map((color, idx) => (
+                  <div
+                    key={idx}
+                    className="w-5 h-5 rounded-full border-2 border-background shadow-sm"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+    </motion.div>
   );
 }

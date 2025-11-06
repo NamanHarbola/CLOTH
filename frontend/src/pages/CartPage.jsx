@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 
 // Define API base URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// --- ADDED THIS LINE ---
+const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -168,7 +170,7 @@ export default function CartPage() {
     toast.info('Coupon removed');
   };
 
-  // --- MODIFIED: handleCheckout ---
+  // --- (handleCheckout is unchanged) ---
   const handleCheckout = async () => {
     if (cartItems.length === 0) {
       toast.error('Your cart is empty');
@@ -306,6 +308,15 @@ export default function CartPage() {
     );
   }
 
+  // --- HELPER to get full image URL ---
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/') && BASE_URL) {
+      return `${BASE_URL}${url}`;
+    }
+    return url;
+  };
+
   // --- (Main component return) ---
   return (
     <div className="min-h-screen pt-20 bg-muted/30">
@@ -333,7 +344,8 @@ export default function CartPage() {
                 <Card>
                   <CardContent className="flex gap-4 p-6">
                     <img
-                      src={item.image}
+                      // --- MODIFIED THIS LINE ---
+                      src={getImageUrl(item.image)}
                       alt={item.name}
                       className="w-24 h-24 object-cover rounded"
                     />

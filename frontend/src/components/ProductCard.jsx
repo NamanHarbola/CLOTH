@@ -8,15 +8,20 @@ import { toast } from 'sonner';
 
 // Define API base URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// Define Base URL to find images
+const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
 export default function ProductCard({ product, index }) {
+  // If product is not yet loaded or is undefined, render nothing.
+  if (!product) {
+    return null;
+  }
+
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const handleProductClick = () => {
-    // MODIFIED: No longer save to localStorage.
-    // The ProductPage will fetch its own data.
     navigate(`/product/${product.id}`);
   };
 
@@ -68,6 +73,15 @@ export default function ProductCard({ product, index }) {
     toast.success(isLiked ? 'Removed from wishlist' : 'Added to wishlist');
   };
 
+  // HELPER to get full image URL
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/') && BASE_URL) {
+      return `${BASE_URL}${url}`;
+    }
+    return url;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -83,7 +97,7 @@ export default function ProductCard({ product, index }) {
       >
         <div className="relative aspect-[3/4] overflow-hidden bg-muted">
           <motion.img
-            src={product.image}
+            src={getImageUrl(product.image)}
             alt={product.name}
             className="w-full h-full object-cover"
             animate={{
@@ -133,7 +147,9 @@ export default function ProductCard({ product, index }) {
         <div className="p-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
             {product.category}
-          </p>
+          </p> 
+          {/* ^^^ THIS WAS THE LINE WITH THE TYPO </Jp> ^^^ */}
+          
           <h3 className="font-semibold text-base mb-2 line-clamp-1">
             {product.name}
           </h3>

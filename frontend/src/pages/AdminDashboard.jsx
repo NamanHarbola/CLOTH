@@ -39,11 +39,17 @@ export default function AdminDashboard() {
     price: '',
     originalPrice: '',
     description: '',
-    image: '',
+    image: '', // <-- This will store the URL from our upload
     colors: '#1a202c',
     badge: '',
-    model3DUrl: '', // <-- Store the URL
+    model3DUrl: '',
   });
+
+  // --- NEW STATE for Product Image Upload ---
+  const [imageFile, setImageFile] = useState(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  
+  // --- NEW STATE for 3D Model ---
   const [model3DFile, setModel3DFile] = useState(null);
   const [isModelUploading, setIsModelUploading] = useState(false);
 
@@ -96,7 +102,8 @@ export default function AdminDashboard() {
       return null;
     }
     
-    const_formData = new FormData();
+    // --- THIS IS THE FIX from the previous step ---
+    const _formData = new FormData();
     _formData.append('file', file);
 
     try {
@@ -187,6 +194,35 @@ export default function AdminDashboard() {
   };
 
   // --- Product Form Handlers ---
+
+  // --- NEW: Handle Product Image File Change ---
+  const handleImageFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit for product images
+        toast.error('Image file size must be less than 2MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file (jpg, png, webp)');
+        return;
+      }
+      
+      setImageFile(file); // Store the file
+      setFormData({ ...formData, image: 'Uploading...' }); // Set placeholder
+      
+      // Upload immediately
+      setIsImageUploading(true);
+      const uploadedUrl = await uploadFile(file);
+      if (uploadedUrl) {
+        setFormData({ ...formData, image: uploadedUrl });
+        toast.success('Image uploaded successfully!');
+      } else {
+        setFormData({ ...formData, image: '' }); // Clear on failure
+      }
+      setIsImageUploading(false);
+    }
+  };
   
   const handle3DModelChange = async (e) => {
     const file = e.target.files[0];
@@ -218,8 +254,14 @@ export default function AdminDashboard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isModelUploading) {
-      toast.error('Please wait for the 3D model to finish uploading.');
+    // --- MODIFIED: Check both uploads ---
+    if (isModelUploading || isImageUploading) {
+      toast.error('Please wait for all files to finish uploading.');
+      return;
+    }
+    // --- NEW: Check for image ---
+    if (!formData.image || formData.image === 'Uploading...') {
+      toast.error('Please upload a product image.');
       return;
     }
     
@@ -230,7 +272,8 @@ export default function AdminDashboard() {
       price: parseFloat(formData.price),
       originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : null,
       colors: [formData.colors],
-      model3DUrl: formData.model3DUrl || null, // Ensure it's in the payload
+      model3DUrl: formData.model3DUrl || null,
+      image: formData.image, // Make sure this is the uploaded URL
     };
 
     try {
@@ -276,12 +319,14 @@ export default function AdminDashboard() {
       price: product.price.toString(),
       originalPrice: product.originalPrice?.toString() || '',
       description: product.description || '',
-      image: product.image,
+      image: product.image, // Load existing URL
       colors: product.colors?.[0] || '#1a202c',
       badge: product.badge || '',
       model3DUrl: product.model3DUrl || '', // Load existing URL
     });
-    setModel3DFile(null); // Clear file input
+    // --- MODIFIED: Clear file inputs ---
+    setModel3DFile(null);
+    setImageFile(null);
     setIsDialogOpen(true);
   };
 
@@ -315,7 +360,11 @@ export default function AdminDashboard() {
       description: '', image: '', colors: '#1a202c', badge: '', model3DUrl: '',
     });
     setEditingProduct(null);
+    // --- MODIFIED: Clear file states ---
     setModel3DFile(null);
+    setImageFile(null);
+    setIsImageUploading(false);
+    setIsModelUploading(false);
   };
 
   const stats = [
@@ -509,7 +558,7 @@ export default function AdminDashboard() {
                       </DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                      {/* ... (Product form fields: Name, Category, Price, etc. - UNCHANGED) ... */}
+                      {/* ... (Name, Category, Price fields are unchanged) ... */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="name">Product Name *</Label>
@@ -530,10 +579,43 @@ export default function AdminDashboard() {
                           <Input id="originalPrice" type="number" step="0.01" value={formData.originalPrice} onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })} />
                         </div>
                       </div>
+
+                      {/* --- MODIFIED: Product Image Input --- */}
                       <div className="space-y-2">
-                        <Label htmlFor="image">Image URL *</Label>
-                        <Input id="image" value={formData.image} onChange={(e) => setFormData({ ...formData, image: e.target.value })} placeholder="https://images.unsplash.com/..." required />
+                        <Label htmlFor="image">Product Image *</Label>
+                        <Input
+                          id="image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageFileChange}
+                          className="cursor-pointer"
+                          disabled={isImageUploading}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Upload JPG, PNG, or WEBP. Max 2MB.
+                        </p>
+                        {isImageUploading && (
+                           <div className="flex items-center space-x-2 text-sm text-blue-500">
+                             <Upload className="w-4 h-4 animate-pulse" />
+                             <span>Uploading...</span>
+                           </div>
+                        )}
+                        {/* Show URL or preview of uploaded image */}
+                        {formData.image && !isImageUploading && (
+                          <div className="flex items-center gap-2">
+                             <img 
+                               src={formData.image.startsWith('/') ? `${BASE_URL}${formData.image}` : formData.image} 
+                               alt="Preview" 
+                               className="w-16 h-16 object-cover rounded" 
+                              />
+                            <p className="text-xs text-secondary font-medium break-all">
+                              ✓ Uploaded: {formData.image}
+                            </p>
+                          </div>
+                        )}
                       </div>
+                      
+                      {/* ... (Color, Badge fields are unchanged) ... */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="colors">Primary Color</Label>
@@ -558,7 +640,7 @@ export default function AdminDashboard() {
                         <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
                       </div>
 
-                      {/* MODIFIED 3D Model Input */}
+                      {/* 3D Model Input (Unchanged) */}
                       <div className="space-y-2">
                         <Label htmlFor="model3D">3D Model (Optional)</Label>
                         <Input
@@ -589,7 +671,8 @@ export default function AdminDashboard() {
                         <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={isLoading || isModelUploading}>
+                        {/* --- MODIFIED: Disable button on all uploads --- */}
+                        <Button type="submit" disabled={isLoading || isModelUploading || isImageUploading}>
                           {isLoading ? 'Saving...' : (editingProduct ? 'Update Product' : 'Add Product')}
                         </Button>
                       </div>
@@ -598,7 +681,7 @@ export default function AdminDashboard() {
                 </Dialog>
               </CardHeader>
               <CardContent>
-                {/* ... (Product table rendering - UNCHANGED) ... */}
+                {/* Product table rendering (Unchanged) */}
                  {isLoading && products.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">Loading products...</div>
                 ) : products.length === 0 ? (
@@ -623,7 +706,12 @@ export default function AdminDashboard() {
                         {products.map((product) => (
                           <tr key={product.id} className="border-b hover:bg-muted/50">
                             <td className="p-4">
-                              <img src={product.image} alt={product.name} className="w-16 h-16 object-cover rounded" />
+                              {/* --- MODIFIED: Use BASE_URL for image src --- */}
+                              <img 
+                                src={product.image.startsWith('/') ? `${BASE_URL}${product.image}` : product.image} 
+                                alt={product.name} 
+                                className="w-16 h-16 object-cover rounded" 
+                              />
                             </td>
                             <td className="p-4 font-medium">{product.name}</td>
                             <td className="p-4 text-muted-foreground">{product.category}</td>
