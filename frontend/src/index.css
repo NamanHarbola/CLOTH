@@ -1,0 +1,249 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        /* Luxury Fashion Color Palette - Royal Green & White */
+        --background: 0 0% 100%;
+        --foreground: 222 47% 11%;
+        
+        /* Primary - Deep Navy */
+        --primary: 222 47% 11%;
+        --primary-foreground: 0 0% 98%;
+        --primary-light: 222 40% 25%;
+        
+        /* Secondary - Royal Green */
+        --secondary: 142 76% 36%;
+        --secondary-foreground: 0 0% 98%;
+        --secondary-light: 142 65% 50%;
+        
+        /* Accent - Emerald Green */
+        --accent: 158 64% 52%;
+        --accent-foreground: 0 0% 98%;
+        --accent-light: 158 55% 65%;
+        
+        /* Muted - Soft Gray */
+        --muted: 220 14% 96%;
+        --muted-foreground: 222 20% 40%;
+        
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+        
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        
+        --border: 220 14% 91%;
+        --input: 220 14% 91%;
+        --ring: 222 47% 11%;
+        
+        /* Custom Design Tokens */
+        --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 40% 25%) 100%);
+        --gradient-accent: linear-gradient(135deg, hsl(158 64% 52%) 0%, hsl(158 55% 65%) 100%);
+        --gradient-green: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 65% 50%) 100%);
+        
+        --shadow-soft: 0 2px 8px -2px hsl(222 47% 11% / 0.08);
+        --shadow-medium: 0 8px 24px -8px hsl(222 47% 11% / 0.12);
+        --shadow-large: 0 16px 48px -16px hsl(222 47% 11% / 0.18);
+        --shadow-glow: 0 0 40px hsl(142 76% 36% / 0.2);
+        
+        --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-bounce: 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        
+        --radius: 0.5rem;
+        --radius-sm: 0.25rem;
+        --radius-lg: 1rem;
+    }
+    
+    .dark {
+        --background: 222 47% 8%;
+        --foreground: 0 0% 98%;
+        
+        --primary: 0 0% 98%;
+        --primary-foreground: 222 47% 11%;
+        --primary-light: 0 0% 85%;
+        
+        --secondary: 142 76% 36%;
+        --secondary-foreground: 0 0% 98%;
+        --secondary-light: 142 65% 50%;
+        
+        --accent: 158 64% 52%;
+        --accent-foreground: 0 0% 98%;
+        --accent-light: 158 55% 75%;
+        
+        --muted: 222 30% 18%;
+        --muted-foreground: 0 0% 70%;
+        
+        --card: 222 40% 12%;
+        --card-foreground: 0 0% 98%;
+        --popover: 222 40% 12%;
+        --popover-foreground: 0 0% 98%;
+        
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        
+        --border: 222 30% 22%;
+        --input: 222 30% 22%;
+        --ring: 0 0% 83%;
+        
+        --gradient-hero: linear-gradient(135deg, hsl(222 47% 8%) 0%, hsl(222 40% 18%) 100%);
+        --gradient-accent: linear-gradient(135deg, hsl(158 64% 52%) 0%, hsl(158 55% 75%) 100%);
+        --gradient-green: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 65% 50%) 100%);
+        
+        --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+        --shadow-medium: 0 8px 24px -8px hsl(0 0% 0% / 0.4);
+        --shadow-large: 0 16px 48px -16px hsl(0 0% 0% / 0.5);
+        --shadow-glow: 0 0 40px hsl(142 76% 36% / 0.3);
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    
+    body {
+        @apply bg-background text-foreground;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-feature-settings: 'rlig' 1, 'calt' 1;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Playfair Display', serif;
+        font-weight: 600;
+    }
+    
+    /* Smooth scrolling */
+    html {
+        scroll-behavior: smooth;
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: hsl(var(--muted));
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: hsl(var(--primary));
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: hsl(var(--primary-light));
+    }
+}
+
+@layer components {
+    /* Gradient text */
+    .gradient-text-green {
+        background: var(--gradient-green);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .gradient-text-accent {
+        background: var(--gradient-accent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    /* Glass morphism */
+    .glass {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    /* 3D Transform utilities */
+    .preserve-3d {
+        transform-style: preserve-3d;
+    }
+    
+    .backface-hidden {
+        backface-visibility: hidden;
+    }
+}
+
+@layer utilities {
+    /* Text utilities */
+    .text-balance {
+        text-wrap: balance;
+    }
+    
+    /* Animation utilities */
+    .animate-float {
+        animation: float 6s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-20px);
+        }
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-out forwards;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-slide-in-left {
+        animation: slideInLeft 0.6s ease-out forwards;
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .animate-slide-in-right {
+        animation: slideInRight 0.6s ease-out forwards;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+}
+
+/* Debug wrapper fix */
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+}
