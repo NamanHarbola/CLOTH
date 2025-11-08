@@ -213,9 +213,14 @@ export default function HomePage() {
             {isLoading ? (
               <p className="text-center text-muted-foreground col-span-full">Loading products...</p>
             ) : (
+              // --- THIS IS THE FIX ---
+              // We add "product &&" to safely skip any undefined items
               featuredProducts.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
+                product ? (
+                  <ProductCard key={product.id || index} product={product} index={index} />
+                ) : null
               ))
+              // --- END FIX ---
             )}
           </div>
           

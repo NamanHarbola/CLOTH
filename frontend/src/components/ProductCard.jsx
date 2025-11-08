@@ -12,10 +12,13 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
 export default function ProductCard({ product, index }) {
+  
+  // --- THIS IS THE CRITICAL FIX ---
   // If product is not yet loaded or is undefined, render nothing.
   if (!product) {
     return null;
   }
+  // --- END FIX ---
 
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);
@@ -147,8 +150,7 @@ export default function ProductCard({ product, index }) {
         <div className="p-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
             {product.category}
-          </p> 
-          {/* ^^^ THIS WAS THE LINE WITH THE TYPO </Jp> ^^^ */}
+          </p>
           
           <h3 className="font-semibold text-base mb-2 line-clamp-1">
             {product.name}
