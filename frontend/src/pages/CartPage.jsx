@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 
 // Define API base URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-// --- ADDED THIS LINE ---
 const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
 export default function CartPage() {
@@ -24,7 +23,6 @@ export default function CartPage() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
 
-  // --- (useEffect, updateQuantity, removeItem are unchanged) ---
   useEffect(() => {
     const fetchCart = async () => {
       const token = localStorage.getItem('userToken');
@@ -106,7 +104,6 @@ export default function CartPage() {
     }
   };
 
-  // --- (Calculation logic is unchanged) ---
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const shipping = subtotal > 5000 ? 0 : 99;
   let discount = 0;
@@ -123,7 +120,6 @@ export default function CartPage() {
   const tax = (subtotal - discount) * 0.18; // 18% GST
   const total = subtotal - discount + shipping + tax;
 
-  // --- (applyCoupon and removeCoupon are unchanged from last step) ---
   const applyCoupon = async () => {
     if (!couponCode.trim()) {
       setCouponError('Please enter a coupon code');
@@ -170,7 +166,6 @@ export default function CartPage() {
     toast.info('Coupon removed');
   };
 
-  // --- (handleCheckout is unchanged) ---
   const handleCheckout = async () => {
     if (cartItems.length === 0) {
       toast.error('Your cart is empty');
@@ -210,7 +205,7 @@ export default function CartPage() {
         key: orderData.razorpay_key_id,
         amount: orderData.amount * 100, // Amount in paise
         currency: 'INR',
-        name: 'LUXE3D',
+        name: 'RISHÉ', // <-- NAME CHANGE
         description: 'Fashion Purchase',
         image: '/logo.png',
         order_id: orderData.razorpay_order_id,
@@ -257,8 +252,6 @@ export default function CartPage() {
           ondismiss: function() {
             setIsProcessing(false);
             toast.info('Payment cancelled');
-            // Note: The "pending" order still exists in the DB.
-            // A real system would have a cron job to clean up old pending orders.
           }
         }
       };
@@ -277,7 +270,6 @@ export default function CartPage() {
     }
   };
 
-  // --- (Loading and Empty Cart UI is unchanged) ---
   if (isLoading) {
     return (
       <div className="min-h-screen pt-20 flex items-center justify-center">
@@ -317,7 +309,6 @@ export default function CartPage() {
     return url;
   };
 
-  // --- (Main component return) ---
   return (
     <div className="min-h-screen pt-20 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -344,7 +335,6 @@ export default function CartPage() {
                 <Card>
                   <CardContent className="flex gap-4 p-6">
                     <img
-                      // --- MODIFIED THIS LINE ---
                       src={getImageUrl(item.image)}
                       alt={item.name}
                       className="w-24 h-24 object-cover rounded"

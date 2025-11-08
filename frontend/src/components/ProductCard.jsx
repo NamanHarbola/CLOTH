@@ -13,12 +13,15 @@ const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
 export default function ProductCard({ product, index }) {
   
+  // --- 
   // --- THIS IS THE CRITICAL FIX ---
-  // If product is not yet loaded or is undefined, render nothing.
+  // If the 'product' prop is undefined or null, this component 
+  // will immediately stop and render nothing, preventing any errors.
   if (!product) {
     return null;
   }
-  // --- END FIX ---
+  // --- END OF FIX ---
+  // ---
 
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);

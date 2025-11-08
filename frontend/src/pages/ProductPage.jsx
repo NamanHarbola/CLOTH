@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ShoppingCart, Heart, Share2, Star, Truck, Shield, RotateCcw } from 'lucide-react';
+import { 
+  ChevronLeft, ShoppingCart, Heart, Share2, Star, Truck, Shield, RotateCcw,
+  Cuboid, // <-- CORRECTED ICON
+  Image as ImageIcon 
+} from 'lucide-react'; 
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import Product3DViewer from '../components/Product3DViewer';
 import SizeChart from '../components/SizeChart';
 
-// Define API base URL
+// Define API and BASE URLs
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
 // Define fixed product details not in the basic model
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -22,6 +27,17 @@ const FEATURES = [
 const RATING = 4.8;
 const REVIEWS = 248;
 
+// --- Helper function to get full image URL ---
+const getImageUrl = (url) => {
+  if (!url) return '';
+  // If URL is relative (starts with /), prepend BASE_URL
+  if (url.startsWith('/') && BASE_URL) {
+    return `${BASE_URL}${url}`;
+  }
+  // Otherwise, use the URL as-is (e.g., if it's an external link)
+  return url;
+};
+
 export default function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -31,9 +47,9 @@ export default function ProductPage() {
   const [isLiked, setIsLiked] = useState(false);
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [show3D, setShow3D] = useState(false); // State for 2D/3D toggle
 
   useEffect(() => {
-    // Fetch product data from the API using the ID
     const fetchProduct = async () => {
       setIsLoading(true);
       try {
@@ -43,12 +59,10 @@ export default function ProductPage() {
         }
         const productData = await response.json();
         
-        // Combine API data with fixed frontend data
         const fullProductData = {
           ...productData,
-          // Convert colors array to objects for the UI
           colors: (productData.colors || ['#1a202c']).map((colorValue, idx) => ({
-            name: idx === 0 ? 'Navy' : idx === 1 ? 'Charcoal' : idx === 2 ? 'Forest' : 'Gray', // Simple name mapping
+            name: idx === 0 ? 'Navy' : idx === 1 ? 'Charcoal' : 'Gray',
             value: colorValue
           })),
           sizes: SIZES,
@@ -63,7 +77,7 @@ export default function ProductPage() {
         }
       } catch (error) {
         toast.error(error.message);
-        navigate('/collection/new'); // Redirect if product not found
+        navigate('/collection/new');
       } finally {
         setIsLoading(false);
       }
@@ -136,15 +150,46 @@ export default function ProductPage() {
         </Button>
 
         <div className="grid lg:grid-cols-2 gap-12">
+          {/* --- MODIFIED PRODUCT VIEWER --- */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="sticky top-24">
-              <Product3DViewer productId={id} />
+            <div className="sticky top-24 space-y-4">
+              <div className="aspect-square w-full overflow-hidden rounded-lg bg-muted flex items-center justify-center">
+                {show3D && product.model3DUrl ? (
+                  // 3D View
+                  <Product3DViewer productId={id} /> 
+                ) : (
+                  // 2D Image View (Default)
+                  <img
+                    src={getImageUrl(product.image)}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+              
+              {/* 3D Toggle Button (only shows if model exists) */}
+              {product.model3DUrl && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShow3D(!show3D)}
+                >
+                  {show3D ? (
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                  ) : (
+                    <Cuboid className="w-4 h-4 mr-2" /> // <-- CORRECTED ICON
+                  )}
+                  {show3D ? 'Show 2D Image' : 'View in 3D'}
+                </Button>
+              )}
             </div>
           </motion.div>
+          {/* --- END OF MODIFICATION --- */}
+
 
           <motion.div
             initial={{ opacity: 0, x: 50 }}

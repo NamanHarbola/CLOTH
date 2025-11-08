@@ -25,7 +25,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class Settings(BaseSettings):
     MONGO_URL: str
-    DB_NAME: str = "luxe3d"
+    DB_NAME: str = "rishe" # <-- NAME CHANGE
     CORS_ORIGINS: str = "http://localhost:3000"
     # JWT Settings
     JWT_SECRET_KEY: str = "a_very_secret_key_please_change_this" # Change this in production
@@ -47,7 +47,7 @@ except Exception as e:
     # Fallback for environments where .env might not be
     settings = Settings(
         MONGO_URL=os.environ.get("MONGO_URL", "mongodb://localhost:27017"), 
-        DB_NAME=os.environ.get("DB_NAME", "luxe3d"),
+        DB_NAME=os.environ.get("DB_NAME", "rishe"), # <-- NAME CHANGE
         RAZORPAY_KEY_ID=os.environ.get("RAZORPAY_KEY_ID", "YOUR_TEST_KEY_ID"),
         RAZORPAY_KEY_SECRET=os.environ.get("RAZORPAY_KEY_SECRET", "YOUR_TEST_KEY_SECRET")
     )
@@ -292,7 +292,7 @@ class VerifyPaymentResponse(BaseModel):
 
 
 # --- FastAPI App & Router ---
-app = FastAPI(title="LUXE3D API")
+app = FastAPI(title="RISHÉ API") # <-- NAME CHANGE
 
 # Mount static directory to serve uploaded files
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -834,4 +834,4 @@ async def shutdown_db_client():
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the LUXE3D API"}
+    return {"message": "Welcome to the RISHÉ API"} # <-- NAME CHANGE

@@ -1,177 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Heart, ShoppingCart } from 'lucide-react';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
 import { toast } from 'sonner';
 
-// Define API base URL
+// Define API and BASE URLs
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-// --- ADDED THIS LINE ---
 const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8000';
 
-export default function ProductCard({ product, index }) {
-  const navigate = useNavigate();
-  const [isLiked, setIsLiked] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+export default function HeroMedia() {
+  const [heroContent, setHeroContent] = useState({
+    type: 'image',
+    url: '', // Start with empty URL
+    alt: 'Loading hero content...',
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleProductClick = () => {
-    navigate(`/product/${product.id}`);
-  };
-
-  const handleAddToCart = async (e) => {
-    e.stopPropagation();
-    
-    const token = localStorage.getItem('userToken');
-    if (!token) {
-      toast.error('Please log in to add items to your cart.');
-      return;
-    }
-    
-    const cartItem = {
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      category: product.category,
-      image: product.image,
-      selectedSize: 'M', // Default size
-      selectedColor: product.colors?.[0] || '#1a202c', // Default color
-      quantity: 1,
-    };
-    
-    try {
-      const response = await fetch(`${API_URL}/cart/items`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(cartItem),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add item to cart.');
-      }
-      
-      await response.json();
-      toast.success(`${product.name} added to cart!`);
-      
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-
-  const handleLike = (e) => {
-    e.stopPropagation();
-    setIsLiked(!isLiked);
-    toast.success(isLiked ? 'Removed from wishlist' : 'Added to wishlist');
-  };
-
-  // --- HELPER to get full image URL ---
-  const getImageUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('/') && BASE_URL) {
-      return `${BASE_URL}${url}`;
-    }
-    return url;
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: index * 0.1, duration: 0.5 }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Card
-        className="group cursor-pointer overflow-hidden border-border hover:shadow-lg transition-all duration-300"
-        onClick={handleProductClick}
-      >
-        <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-          <motion.img
-            // --- MODIFIED THIS LINE ---
-            src={getImageUrl(product.image)}
-            alt={product.name}
-            className="w-full h-full object-cover"
-            animate={{
-              scale: isHovered ? 1.1 : 1,
-            }}
-            transition={{ duration: 0.6 }}
-          />
-          
-          {product.badge && product.badge !== 'none' && (
-            <div className="absolute top-4 left-4 bg-accent text-accent-foreground px-3 py-1 text-xs font-semibold rounded-full">
-              {product.badge}
-            </div>
-          )}
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 bg-background/80 backdrop-blur-sm hover:bg-background"
-            onClick={handleLike}
-          >
-            <Heart
-              className={`w-5 h-5 transition-all ${
-                isLiked ? 'fill-accent text-accent' : 'text-foreground'
-              }`}
-            />
-          </Button>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{
-              opacity: isHovered ? 1 : 0,
-              y: isHovered ? 0 : 20,
-            }}
-            transition={{ duration: 0.3 }}
-            className="absolute bottom-4 left-4 right-4"
-          >
-            <Button
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={handleAddToCart}
-            >
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              Add to Cart
-            </Button>
-          </motion.div>
-        </div>
+  useEffect(() => {
+    const fetchHeroContent = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/content/hero`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch hero content');
+        }
+        const data = await response.json();
         
-        <div className="p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-            {product.category}
-          </p>
-          <h3 className="font-semibold text-base mb-2 line-clamp-1">
-            {product.name}
-          </h3>
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline space-x-2">
-              <span className="text-lg font-bold text-foreground">
-                {'\u20B9'}{product.price.toLocaleString('en-IN')}
-              </span>
-              {product.originalPrice && (
-                <span className="text-sm text-muted-foreground line-through">
-                  {'\u20B9'}{product.originalPrice.toLocaleString('en-IN')}
-                </span>
-              )}
-            </div>
-            {product.colors && (
-              <div className="flex space-x-1">
-                {product.colors.slice(0, 3).map((color, idx) => (
-                  <div
-                    key={idx}
-                    className="w-5 h-5 rounded-full border-2 border-background shadow-sm"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </Card>
-    </motion.div>
+        // Prepend BASE_URL if the URL is relative (e.g., /uploads/...)
+        if (data.url && data.url.startsWith('/')) {
+          data.url = `${BASE_URL}${data.url}`;
+        }
+        
+        setHeroContent(data);
+      } catch (error) {
+        toast.error(error.message);
+        // Set a fallback image on error
+        setHeroContent({
+          type: 'image',
+          url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1920&q=80',
+          alt: 'Fashion Model',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHeroContent();
+  }, []);
+
+  // Show a simple loading state or a blank div
+  if (isLoading || !heroContent.url) {
+    return (
+      <div className="w-full h-full bg-muted animate-pulse" />
+    );
+  }
+
+  // Render video or image based on fetched type
+  if (heroContent.type === 'video') {
+    return (
+      <motion.video
+        key={heroContent.url}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.5 }}
+        className="w-full h-full object-cover"
+        src={heroContent.url}
+        autoPlay
+        loop
+        muted
+        playsInline // Important for mobile browsers
+      />
+    );
+  }
+
+  // Default to rendering an image
+  return (
+    <motion.img
+      key={heroContent.url}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1.5 }}
+      src={heroContent.url}
+      alt={heroContent.alt}
+      className="w-full h-full object-cover"
+    />
   );
 }
