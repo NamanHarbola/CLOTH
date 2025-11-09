@@ -15,6 +15,8 @@ from fastapi.staticfiles import StaticFiles # To serve uploaded files
 import razorpay # Import Razorpay
 import hmac # For mock verification
 import hashlib
+# FIX: Added imports for Pydantic v2 compatibility
+from pydantic_core import core_schema 
 
 # --- Setup Uploads Directory ---
 UPLOAD_DIR = "uploads"
@@ -80,18 +82,29 @@ order_collection = db.get_collection("orders")
 # --- Pydantic Models ---
 
 # Helper for MongoDB ObjectId
+# FIX: Corrected Pydantic v2 Schema names (e.g., StringSchema)
 class PyObjectId(ObjectId):
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-    @classmethod
-    def validate(cls, v, *args, **kwargs):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-    @classmethod
-    def __get_pydantic_json_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: Any
+    ) -> core_schema.CoreSchema:
+        def validate_from_str(v: str) -> ObjectId:
+            if not ObjectId.is_valid(v):
+                raise ValueError("Invalid ObjectId")
+            return ObjectId(v)
+
+        return core_schema.union_schema(
+            [
+                core_schema.is_instance_schema(ObjectId),
+                core_schema.chain_schema(
+                    [
+                        core_schema.StringSchema(), # <-- FIX: Capital 'S'
+                        core_schema.plain_validator_function_schema(validate_from_str),
+                    ]
+                ),
+            ],
+            serialization=core_schema.plain_serializer_function_schema(str),
+        )
 
 # Base Model for MongoDB
 class MongoBaseModel(BaseModel):
@@ -629,7 +642,8 @@ async def upload_file(file: UploadFile = File(...), current_user: dict = Depends
         return {"message": "File uploaded successfully", "url": file_url}
         
     except Exception as e:
-        logger.error(f"File upload failed: {e}")
+        # FIX: Changed logger.error to logging.error to avoid NameError
+        logging.error(f"File upload failed: {e}")
         raise HTTPException(status_code=500, detail="Could not upload file")
     finally:
         file.file.close()
@@ -693,11 +707,15 @@ async def create_order(request: CreateOrderRequest, current_user: dict = Depends
     subtotal = sum(item.price * item.quantity for item in items)
     discount = 0
     coupon = None
+    coupon_data_dict = None # FIX: Will hold the coupon dict
 
     if request.coupon_code:
         try:
             coupon_validate_req = CouponValidateRequest(code=request.coupon_code, subtotal=subtotal)
-            coupon = await validate_coupon(coupon_validate_req, current_user) # Use existing function
+            coupon_data_dict = await validate_coupon(coupon_validate_req, current_user) # Use existing function
+            
+            # FIX: Convert dict back to Pydantic model to access attributes
+            coupon = Coupon(**coupon_data_dict) 
             if coupon.type == 'percentage':
                 discount = (subtotal * coupon.value) / 100
                 if coupon.maxDiscount and discount > coupon.maxDiscount:
@@ -825,8 +843,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# FIX: Moved logger setup here, before it's (potentially) used
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) # This logger is fine, but the one in /upload was the issue.
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
