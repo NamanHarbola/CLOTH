@@ -1,126 +1,94 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom'; // Import useSearchParams
-import { motion } from 'framer-motion';
-import { toast } from 'sonner';
-import ProductCard from '../components/ProductCard';
-import { Package } from 'lucide-react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Search, User, ShieldCheck } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import UserAuthDialog from './UserAuthDialog'; // We need this for the user modal
+import { useAuth } from '../context/AuthContext'; // We'll need this in a moment
 
-// Define API base URL
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+export default function Navbar() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth(); // Get user info from context
 
-export default function CollectionPage() {
-  const { category } = useParams();
-  
-  // --- FIX: Get search term from URL query parameter ---
-  const [searchParams] = useSearchParams();
-  const searchTerm = searchParams.get('search');
-  // --- END FIX ---
-
-  const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`${API_URL}/products`);
-        if (!response.ok) {
-          throw new Error('Failed to load products');
-        }
-        const data = await response.json();
-        setProducts(data);
-      } catch (error) {
-        toast.error(error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []); // Fetch all products once on load
-
-  // --- FIX: Enhanced filtering logic ---
-  const filteredProducts = products.filter(product => {
-    // 1. Category Filter
-    const categoryMatch = category === 'all' || 
-                          category === 'new' || 
-                          product.category.toLowerCase() === category.toLowerCase();
-    
-    // 2. Search Term Filter
-    if (searchTerm) {
-      const searchMatch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      // Must match both category (if not 'all') and search
-      if (category === 'all' || category === 'new') {
-        return searchMatch; // For 'all' or 'new', just check search
-      } else {
-        return categoryMatch && searchMatch; // For specific category, check both
-      }
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      // Navigate to a search results page
+      navigate(`/search?search=${searchTerm.trim()}`);
+      setSearchTerm('');
     }
-    
-    // If no search term, just filter by category
-    return categoryMatch;
-  });
-
-  // Handle 'New' badge logic separately if needed
-  const finalProducts = (category === 'new' && !searchTerm) 
-    ? filteredProducts.filter(p => p.badge === 'New') 
-    : filteredProducts;
-  // --- END FIX ---
-
-  // Determine the title
-  let title;
-  if (searchTerm) {
-    title = `Search results for "${searchTerm}"`;
-  } else if (category === 'new') {
-    title = 'New Arrivals';
-  } else {
-    title = category.charAt(0).toUpperCase() + category.slice(1);
-  }
+  };
 
   return (
-    <div className="min-h-screen pt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h1 className="text-4xl font-bold mb-2">{title}</h1>
-          <p className="text-lg text-muted-foreground mb-10">
-            {finalProducts.length} {finalProducts.length === 1 ? 'product' : 'products'} found
-          </p>
-        </motion.div>
+    <>
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-sm border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            
+            {/* Logo/Brand */}
+            <Link to="/" className="text-2xl font-bold">
+              RISHÉ
+            </Link>
 
-        {isLoading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Skeleton Loaders */}
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="space-y-2">
-                <div className="aspect-[3/4] bg-muted rounded-lg animate-pulse" />
-                <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
-                <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
-              </div>
-            ))}
+            {/* Nav Links */}
+            <div className="hidden md:flex items-center space-x-6">
+              <Link to="/category/all" className="text-sm font-medium text-muted-foreground hover:text-primary">
+                All
+              </Link>
+              <Link to="/category/shirts" className="text-sm font-medium text-muted-foreground hover:text-primary">
+                Shirts
+              </Link>
+              <Link to="/category/pants" className="text-sm font-medium text-muted-foreground hover:text-primary">
+                Pants
+              </Link>
+              <Link to="/category/new" className="text-sm font-medium text-muted-foreground hover:text-primary">
+                New Arrivals
+              </Link>
+            </div>
+
+            {/* Search & Icons */}
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <form onSubmit={handleSearch} className="hidden md:flex items-center">
+                <Input 
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-9 w-32 md:w-full"
+                />
+                <Button type="submit" variant="ghost" size="icon">
+                  <Search className="w-5 h-5" />
+                </Button>
+              </form>
+
+              {/* Admin Link - only shows if user is admin */}
+              {user && user.isAdmin && (
+                <Button asChild variant="ghost" size="icon">
+                  <Link to="/admin" title="Admin Dashboard">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                  </Link>
+                </Button>
+              )}
+
+              <Button asChild variant="ghost" size="icon">
+                <Link to="/cart">
+                  <ShoppingCart className="w-5 h-5" />
+                </Link>
+              </Button>
+
+              <Button variant="ghost" size="icon" onClick={() => setIsAuthOpen(true)}>
+                <User className="w-5 h-5" />
+              </Button>
+            </div>
+
           </div>
-        ) : finalProducts.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {finalProducts.map((product, index) => (
-              product ? (
-                <ProductCard key={product.id || index} product={product} index={index} />
-              ) : null
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center text-center py-20">
-            <Package className="w-24 h-24 text-muted-foreground opacity-50 mb-6" />
-            <h2 className="text-2xl font-bold mb-2">No Products Found</h2>
-            <p className="text-muted-foreground max-w-md">
-              We couldn't find any products that match your criteria. Try adjusting your search or filters.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      </nav>
+      
+      {/* Login/Signup Dialog */}
+      <UserAuthDialog open={isAuthOpen} onOpenChange={setIsAuthOpen} />
+    </>
   );
 }
