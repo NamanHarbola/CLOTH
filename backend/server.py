@@ -82,28 +82,43 @@ order_collection = db.get_collection("orders")
 # --- Pydantic Models ---
 
 # Helper for MongoDB ObjectId
-# FIX: Corrected Pydantic v2 Schema names (e.g., StringSchema)
+# FIX: Corrected Pydantic v2 Schema
 class PyObjectId(ObjectId):
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: Any
     ) -> core_schema.CoreSchema:
-        def validate_from_str(v: str) -> ObjectId:
-            if not ObjectId.is_valid(v):
-                raise ValueError("Invalid ObjectId")
-            return ObjectId(v)
 
-        return core_schema.union_schema(
+        # This is the validator function that Pydantic will use
+        def validate_object_id(v: Any) -> ObjectId:
+            if isinstance(v, ObjectId):
+                return v
+            if ObjectId.is_valid(v):
+                return ObjectId(v)
+            raise ValueError("Invalid ObjectId")
+        
+        # This is the serialization function
+        def serialize_object_id(v: ObjectId) -> str:
+            return str(v)
+
+        # This schema allows validation from either an existing ObjectId instance or a string
+        validation_schema = core_schema.union_schema(
             [
                 core_schema.is_instance_schema(ObjectId),
-                core_schema.chain_schema(
-                    [
-                        core_schema.StringSchema(), # <-- FIX: Capital 'S'
-                        core_schema.plain_validator_function_schema(validate_from_str),
-                    ]
-                ),
+                core_schema.no_info_plain_validator_function(validate_object_id),
             ],
-            serialization=core_schema.plain_serializer_function_schema(str),
+        )
+
+        # This defines how to serialize the ObjectId (turn it into a string)
+        serialization_schema = core_schema.plain_serializer_function_schema(
+            serialize_object_id
+        )
+        
+        # This is the final schema that Pydantic uses
+        return core_schema.json_or_python_schema(
+            json_schema=core_schema.string_schema(), # In JSON, it's just a string
+            python_schema=validation_schema,         # For Python, use our validator
+            serialization=serialization_schema      # Use our serializer
         )
 
 # Base Model for MongoDB
